@@ -9,11 +9,12 @@ import numpy as np
 import pandas as pd
 from scipy import interpolate
 
+shibor_rate = pd.read_csv('shibor.csv', index_col=0, encoding='GBK')
+options_data = pd.read_csv('options.csv', index_col=0, encoding='GBK')
+tradeday = pd.read_csv('tradeday.csv', encoding='GBK')
+true_ivix = pd.read_csv('ivixx.csv', encoding='GBK')
+pd.options.mode.chained_assignment = None
 
-shibor_rate = pd.read_csv('E:/VIX_index/ivix-master/shibor.csv',index_col=0,encoding='GBK')
-options_data = pd.read_csv('E:/VIX_index/ivix-master/options.csv',index_col=0,encoding='GBK')
-tradeday = pd.read_csv('E:/VIX_index/ivix-master/tradeday.csv',encoding='GBK')
-true_ivix = pd.read_csv('E:/VIX_index/ivix-master/ivixx.csv',encoding='GBK')
 
 #==============================================================================
 # 开始计算ivix部分
@@ -32,16 +33,16 @@ def periodsSplineRiskFreeInterestRate(options, date):
     for epd in exp_dates:
         epd = pd.to_datetime(epd)
         periods[epd] = (epd - date).days*1.0/365.0
-    shibor_date = datetime.strptime(shibor_rate.index[0], "%Y-%m-%d") 
+    shibor_date = datetime.strptime(shibor_rate.index[0], "%Y-%m-%d")
     if date >= shibor_date:
         date_str = shibor_rate.index[0]
-        shibor_values = shibor_rate.ix[0].values
+        shibor_values = shibor_rate.loc[0].values
         #shibor_values = np.asarray(list(map(float,shibor_values)))
     else:
-        date_str = date.strftime("%Y-%m-%d") 
+        date_str = date.strftime("%Y-%m-%d")
         shibor_values = shibor_rate.loc[date_str].values
         #shibor_values = np.asarray(list(map(float,shibor_values)))
-        
+
     shibor = {}
     period = np.asarray([1.0, 7.0, 14.0, 30.0, 90.0, 180.0, 270.0, 360.0]) / 360.0
     min_period = min(period)
@@ -53,16 +54,17 @@ def periodsSplineRiskFreeInterestRate(options, date):
         elif periods[p] < min_period:
             tmp = min_period * 1.00001
         # 此处使用SHIBOR来插值
-        sh = interpolate.spline(period, shibor_values, tmp, order=3)
-        shibor[p] = sh/100.0
+        sh_func = interpolate.interp1d(period, shibor_values, kind="cubic")
+        sh = sh_func(tmp)
+        shibor[p] = sh / 100.0
     return shibor
 
 
 def getHistDayOptions(vixDate,options_data):
     options_data = options_data.loc[vixDate,:]
     return options_data
-    
-    
+
+
 
 def getNearNextOptExpDate(options, vixDate):
     # 找到options中的当月和次月期权到期日；
@@ -121,25 +123,25 @@ def calSigmaSquare( options, FF, R, T):
     putAll  = options[options.EXE_MODE==u"认沽"].set_index(u"EXE_PRICE").sort_index()
     callAll['deltaK'] = 0.05
     putAll['deltaK']  = 0.05
-    
+
     # Interval between strike prices
     index = callAll.index
     if len(index) < 3:
         callAll['deltaK'] = index[-1] - index[0]
     else:
-        for i in range(1,len(index)-1):
-            callAll['deltaK'].ix[index[i]] = (index[i+1]-index[i-1])/2.0
-        callAll['deltaK'].ix[index[0]] = index[1]-index[0]
-        callAll['deltaK'].ix[index[-1]] = index[-1] - index[-2]
+        for i in range(1, len(index) - 1):
+            callAll['deltaK'].loc[index[i]] = (index[i + 1] - index[i - 1]) / 2.0
+        callAll['deltaK'].loc[index[0]] = index[1] - index[0]
+        callAll['deltaK'].loc[index[-1]] = index[-1] - index[-2]
     index = putAll.index
     if len(index) < 3:
         putAll['deltaK'] = index[-1] - index[0]
     else:
         for i in range(1,len(index)-1):
-            putAll['deltaK'].ix[index[i]] = (index[i+1]-index[i-1])/2.0
-        putAll['deltaK'].ix[index[0]] = index[1]-index[0]
-        putAll['deltaK'].ix[index[-1]] = index[-1] - index[-2]
-    
+            putAll['deltaK'].loc[index[i]] = (index[i + 1] - index[i - 1]) / 2.0
+        putAll['deltaK'].loc[index[0]] = index[1] - index[0]
+        putAll['deltaK'].loc[index[-1]] = index[-1] - index[-2]
+
     call = callAll[callAll.index > FF]
     put  = putAll[putAll.index < FF]
     FF_idx = FF
@@ -156,10 +158,10 @@ def calSigmaSquare( options, FF, R, T):
     else:
         FF_idx = put.index[-1]
         try:
-            if len(putAll.ix[FF_idx].CLOSE.values) > 1:
-                put['CLOSE'].iloc[-1] = (putAll.ix[FF_idx].CLOSE.values[1] + callAll.ix[FF_idx].CLOSE.values[0])/2.0
+            if len(putAll.loc[FF_idx].CLOSE.values) > 1:
+                put['CLOSE'].iloc[-1] = (putAll.loc[FF_idx].CLOSE.values[1] + callAll.loc[FF_idx].CLOSE.values[0]) / 2.0
         except:
-            put['CLOSE'].iloc[-1] = (putAll.ix[FF_idx].CLOSE + callAll.ix[FF_idx].CLOSE)/2.0
+            put['CLOSE'].iloc[-1] = (putAll.loc[FF_idx].CLOSE + callAll.loc[FF_idx].CLOSE) / 2.0
 
         callComponent = call.CLOSE*call.deltaK/call.index/call.index
         putComponent  = put.CLOSE*put.deltaK/put.index/put.index
@@ -188,7 +190,7 @@ def calDayVIX(vixDate):
     shibor = periodsSplineRiskFreeInterestRate(options, vixDate)
     R_near = shibor[datetime(near.year,near.month,near.day)]
     R_next = shibor[datetime(nexts.year,nexts.month,nexts.day)]
-    
+
     str_near = changeste(near)
     str_nexts = changeste(nexts)
     optionsNearTerm = options[options.EXE_ENDDATE == str_near]
@@ -216,22 +218,14 @@ def calDayVIX(vixDate):
 ivix = []
 for day in tradeday['DateTime']:
     ivix.append(calDayVIX(day))
-    #print ivix
-    
-from pyecharts import Line
+
+import matplotlib.pyplot as plt
+
 attr = true_ivix[u'日期'].tolist()
-line = Line(u"中国波指")
-line.add("中证指数发布", attr, true_ivix[u'收盘价(元)'].tolist(), mark_point=["max"])
-line.add("手动计算", attr, ivix, mark_line=["max",'average'])
-line.render('E:/VIX_index/ivix-master/vix.html')
-
-
-
-
-
-
-
-
-
-
-
+plt.title("Calculated VIX vs. True VIX")
+plt.plot(attr, true_ivix[u'收盘价(元)'], label='Calculated VIX')
+plt.plot(attr, ivix, label='True Vix')
+plt.xticks(['2015/2/10', '2016/2/15', '2017/2/10', '2018/1/22'])
+plt.yticks([0, 10, 20, 30, 40, 50, 60, 70])
+plt.legend()
+plt.show()
