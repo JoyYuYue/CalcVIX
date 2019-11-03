@@ -16,9 +16,9 @@ true_ivix = pd.read_csv('ivixx.csv', encoding='GBK')
 pd.options.mode.chained_assignment = None
 
 
-#==============================================================================
+# ==============================================================================
 # 开始计算ivix部分
-#==============================================================================
+# ==============================================================================
 def periodsSplineRiskFreeInterestRate(options, date):
     """
     params: options: 计算VIX的当天的options数据用来获取expDate
@@ -26,22 +26,22 @@ def periodsSplineRiskFreeInterestRate(options, date):
     return：shibor：该date到每个到期日exoDate的risk free rate
 
     """
-    date = datetime.strptime(date,'%Y/%m/%d')
-    #date = datetime(date.year,date.month,date.day)
+    date = datetime.strptime(date, '%Y/%m/%d')
+    # date = datetime(date.year,date.month,date.day)
     exp_dates = np.sort(options.EXE_ENDDATE.unique())
     periods = {}
     for epd in exp_dates:
         epd = pd.to_datetime(epd)
-        periods[epd] = (epd - date).days*1.0/365.0
+        periods[epd] = (epd - date).days * 1.0 / 365.0
     shibor_date = datetime.strptime(shibor_rate.index[0], "%Y-%m-%d")
     if date >= shibor_date:
         date_str = shibor_rate.index[0]
         shibor_values = shibor_rate.loc[0].values
-        #shibor_values = np.asarray(list(map(float,shibor_values)))
+        # shibor_values = np.asarray(list(map(float,shibor_values)))
     else:
         date_str = date.strftime("%Y-%m-%d")
         shibor_values = shibor_rate.loc[date_str].values
-        #shibor_values = np.asarray(list(map(float,shibor_values)))
+        # shibor_values = np.asarray(list(map(float,shibor_values)))
 
     shibor = {}
     period = np.asarray([1.0, 7.0, 14.0, 30.0, 90.0, 180.0, 270.0, 360.0]) / 360.0
@@ -60,17 +60,16 @@ def periodsSplineRiskFreeInterestRate(options, date):
     return shibor
 
 
-def getHistDayOptions(vixDate,options_data):
-    options_data = options_data.loc[vixDate,:]
+def getHistDayOptions(vixDate, options_data):
+    options_data = options_data.loc[vixDate, :]
+    print(vixDate, options_data)
     return options_data
-
 
 
 def getNearNextOptExpDate(options, vixDate):
     # 找到options中的当月和次月期权到期日；
     # 用这两个期权隐含的未来波动率来插值计算未来30隐含波动率，是为市场恐慌指数VIX；
-    # 如果options中的最近到期期权离到期日仅剩1天以内，则抛弃这一期权，改
-    # 选择次月期权和次月期权之后第一个到期的期权来计算。
+    # 如果options中的最近到期期权离到期日仅剩1天以内，则抛弃这一期权，改选择次月期权和次月期权之后第一个到期的期权来计算。
     # 返回的near和next就是用来计算VIX的两个期权的到期日
     """
     params: options: 该date为交易日的所有期权合约的基本信息和价格信息
@@ -78,9 +77,9 @@ def getNearNextOptExpDate(options, vixDate):
     return: near: 当月合约到期日（ps：大于1天到期）
             next：次月合约到期日
     """
-    vixDate = datetime.strptime(vixDate,'%Y/%m/%d')
+    vixDate = datetime.strptime(vixDate, '%Y/%m/%d')
     optionsExpDate = list(pd.Series(options.EXE_ENDDATE.values.ravel()).unique())
-    optionsExpDate = [datetime.strptime(i,'%Y/%m/%d %H:%M') for i in optionsExpDate]
+    optionsExpDate = [datetime.strptime(i, '%Y/%m/%d %H:%M') for i in optionsExpDate]
     near = min(optionsExpDate)
     optionsExpDate.remove(near)
     if near.day - vixDate.day < 1:
@@ -88,6 +87,7 @@ def getNearNextOptExpDate(options, vixDate):
         optionsExpDate.remove(near)
     nt = min(optionsExpDate)
     return near, nt
+
 
 def getStrikeMinCallMinusPutClosePrice(options):
     # options 中包括计算某日VIX的call和put两种期权，
@@ -99,14 +99,15 @@ def getStrikeMinCallMinusPutClosePrice(options):
     return: strike: 看涨合约价格-看跌合约价格 的差值的绝对值最小的行权价
             priceDiff: 以及这个差值，这个是用来确定中间行权价的第一步
     """
-    call = options[options.EXE_MODE==u"认购"].set_index(u"EXE_PRICE").sort_index()
-    put  = options[options.EXE_MODE==u"认沽"].set_index(u"EXE_PRICE").sort_index()
+    call = options[options.EXE_MODE == u"认购"].set_index(u"EXE_PRICE").sort_index()
+    put = options[options.EXE_MODE == u"认沽"].set_index(u"EXE_PRICE").sort_index()
     callMinusPut = call.CLOSE - put.CLOSE
     strike = abs(callMinusPut).idxmin()
     priceDiff = callMinusPut[strike].min()
     return strike, priceDiff
 
-def calSigmaSquare( options, FF, R, T):
+
+def calSigmaSquare(options, FF, R, T):
     # 计算某个到期日期权对于VIX的贡献sigma；
     # 输入为期权数据options，FF为forward index price，
     # R为无风险利率， T为期权剩余到期时间
@@ -119,10 +120,10 @@ def calSigmaSquare( options, FF, R, T):
             T： 还有多久到期（年化）
     return：Sigma：得到的结果是传入该到期日数据的Sigma
     """
-    callAll = options[options.EXE_MODE==u"认购"].set_index(u"EXE_PRICE").sort_index()
-    putAll  = options[options.EXE_MODE==u"认沽"].set_index(u"EXE_PRICE").sort_index()
+    callAll = options[options.EXE_MODE == u"认购"].set_index(u"EXE_PRICE").sort_index()
+    putAll = options[options.EXE_MODE == u"认沽"].set_index(u"EXE_PRICE").sort_index()
     callAll['deltaK'] = 0.05
-    putAll['deltaK']  = 0.05
+    putAll['deltaK'] = 0.05
 
     # Interval between strike prices
     index = callAll.index
@@ -137,24 +138,24 @@ def calSigmaSquare( options, FF, R, T):
     if len(index) < 3:
         putAll['deltaK'] = index[-1] - index[0]
     else:
-        for i in range(1,len(index)-1):
+        for i in range(1, len(index) - 1):
             putAll['deltaK'].loc[index[i]] = (index[i + 1] - index[i - 1]) / 2.0
         putAll['deltaK'].loc[index[0]] = index[1] - index[0]
         putAll['deltaK'].loc[index[-1]] = index[-1] - index[-2]
 
     call = callAll[callAll.index > FF]
-    put  = putAll[putAll.index < FF]
+    put = putAll[putAll.index < FF]
     FF_idx = FF
     if put.empty:
         FF_idx = call.index[0]
-        callComponent = call.CLOSE*call.deltaK/call.index/call.index
-        sigma = (sum(callComponent))*np.exp(T*R)*2/T
-        sigma = sigma - (FF/FF_idx - 1)**2/T
+        callComponent = call.CLOSE * call.deltaK / call.index / call.index
+        sigma = (sum(callComponent)) * np.exp(T * R) * 2 / T
+        sigma = sigma - (FF / FF_idx - 1) ** 2 / T
     elif call.empty:
         FF_idx = put.index[-1]
-        putComponent = put.CLOSE*put.deltaK/put.index/put.index
-        sigma = (sum(putComponent))*np.exp(T*R)*2/T
-        sigma = sigma - (FF/FF_idx - 1)**2/T
+        putComponent = put.CLOSE * put.deltaK / put.index / put.index
+        sigma = (sum(putComponent)) * np.exp(T * R) * 2 / T
+        sigma = sigma - (FF / FF_idx - 1) ** 2 / T
     else:
         FF_idx = put.index[-1]
         try:
@@ -163,19 +164,21 @@ def calSigmaSquare( options, FF, R, T):
         except:
             put['CLOSE'].iloc[-1] = (putAll.loc[FF_idx].CLOSE + callAll.loc[FF_idx].CLOSE) / 2.0
 
-        callComponent = call.CLOSE*call.deltaK/call.index/call.index
-        putComponent  = put.CLOSE*put.deltaK/put.index/put.index
-        sigma = (sum(callComponent)+sum(putComponent))*np.exp(T*R)*2/T
-        sigma = sigma - (FF/FF_idx - 1)**2/T
+        callComponent = call.CLOSE * call.deltaK / call.index / call.index
+        putComponent = put.CLOSE * put.deltaK / put.index / put.index
+        sigma = (sum(callComponent) + sum(putComponent)) * np.exp(T * R) * 2 / T
+        sigma = sigma - (FF / FF_idx - 1) ** 2 / T
     return sigma
 
+
 def changeste(t):
-    if t.month>=10:
-        str_t = t.strftime('%Y/%m/%d ')+'0:00'
+    if t.month >= 10:
+        str_t = t.strftime('%Y/%m/%d ') + '0:00'
     else:
         str_t = t.strftime('%Y/%m/%d ')
-        str_t = str_t[:5]+str_t[6:]+'0:00'
+        str_t = str_t[:5] + str_t[6:] + '0:00'
     return str_t
+
 
 def calDayVIX(vixDate):
     # 利用CBOE的计算方法，计算历史某一日的未来30日期权波动率指数VIX
@@ -185,35 +188,36 @@ def calDayVIX(vixDate):
     """
 
     # 拿取所需期权信息
-    options = getHistDayOptions(vixDate,options_data)
+    options = getHistDayOptions(vixDate, options_data)
     near, nexts = getNearNextOptExpDate(options, vixDate)
     shibor = periodsSplineRiskFreeInterestRate(options, vixDate)
-    R_near = shibor[datetime(near.year,near.month,near.day)]
-    R_next = shibor[datetime(nexts.year,nexts.month,nexts.day)]
+    R_near = shibor[datetime(near.year, near.month, near.day)]
+    R_next = shibor[datetime(nexts.year, nexts.month, nexts.day)]
 
     str_near = changeste(near)
     str_nexts = changeste(nexts)
     optionsNearTerm = options[options.EXE_ENDDATE == str_near]
     optionsNextTerm = options[options.EXE_ENDDATE == str_nexts]
     # time to expiration
-    vixDate = datetime.strptime(vixDate,'%Y/%m/%d')
-    T_near = (near - vixDate).days/365.0
-    T_next = (nexts- vixDate).days/365.0
+    vixDate = datetime.strptime(vixDate, '%Y/%m/%d')
+    T_near = (near - vixDate).days / 365.0
+    T_next = (nexts - vixDate).days / 365.0
     # the forward index prices
     nearPriceDiff = getStrikeMinCallMinusPutClosePrice(optionsNearTerm)
     nextPriceDiff = getStrikeMinCallMinusPutClosePrice(optionsNextTerm)
-    near_F = nearPriceDiff[0] + np.exp(T_near*R_near)*nearPriceDiff[1]
-    next_F = nextPriceDiff[0] + np.exp(T_next*R_next)*nextPriceDiff[1]
+    near_F = nearPriceDiff[0] + np.exp(T_near * R_near) * nearPriceDiff[1]
+    next_F = nextPriceDiff[0] + np.exp(T_next * R_next) * nextPriceDiff[1]
     # 计算不同到期日期权对于VIX的贡献
-    near_sigma = calSigmaSquare( optionsNearTerm, near_F, R_near, T_near)
+    near_sigma = calSigmaSquare(optionsNearTerm, near_F, R_near, T_near)
     next_sigma = calSigmaSquare(optionsNextTerm, next_F, R_next, T_next)
 
     # 利用两个不同到期日的期权对VIX的贡献sig1和sig2，
     # 已经相应的期权剩余到期时间T1和T2；
     # 差值得到并返回VIX指数(%)
-    w = (T_next - 30.0/365.0)/(T_next - T_near)
-    vix = T_near*w*near_sigma + T_next*(1 - w)*next_sigma
-    return 100*np.sqrt(abs(vix)*365.0/30.0)
+    w = (T_next - 30.0 / 365.0) / (T_next - T_near)
+    vix = T_near * w * near_sigma + T_next * (1 - w) * next_sigma
+    return 100 * np.sqrt(abs(vix) * 365.0 / 30.0)
+
 
 ivix = []
 for day in tradeday['DateTime']:
