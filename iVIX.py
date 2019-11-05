@@ -10,8 +10,8 @@ import pandas as pd
 from scipy import interpolate
 
 shibor_rate = pd.read_csv('shibor.csv', index_col=0, encoding='GBK')
-options_data = pd.read_csv('options.csv', index_col=0, encoding='GBK')
-tradeday = pd.read_csv('tradeday.csv', encoding='GBK')
+options_data = pd.read_csv('data_test.csv',index_col = 'trading_date')
+tradeday = pd.read_csv('tradeday.csv', encoding='GBK')[:15]
 true_ivix = pd.read_csv('ivixx.csv', encoding='GBK')
 pd.options.mode.chained_assignment = None
 
@@ -28,7 +28,7 @@ def periodsSplineRiskFreeInterestRate(options, date):
     """
     date = datetime.strptime(date, '%Y/%m/%d')
     # date = datetime(date.year,date.month,date.day)
-    exp_dates = np.sort(options.EXE_ENDDATE.unique())
+    exp_dates = np.sort(options.maturity_date.unique())
     periods = {}
     for epd in exp_dates:
         epd = pd.to_datetime(epd)
@@ -61,8 +61,8 @@ def periodsSplineRiskFreeInterestRate(options, date):
 
 
 def getHistDayOptions(vixDate, options_data):
+    vixDate = datetime.strftime(datetime.strptime(vixDate, '%Y/%m/%d'),'%Y-%m-%d')
     options_data = options_data.loc[vixDate, :]
-    print(vixDate, options_data)
     return options_data
 
 
@@ -78,8 +78,8 @@ def getNearNextOptExpDate(options, vixDate):
             next：次月合约到期日
     """
     vixDate = datetime.strptime(vixDate, '%Y/%m/%d')
-    optionsExpDate = list(pd.Series(options.EXE_ENDDATE.values.ravel()).unique())
-    optionsExpDate = [datetime.strptime(i, '%Y/%m/%d %H:%M') for i in optionsExpDate]
+    optionsExpDate = list(pd.Series(options.maturity_date.values.ravel()).unique())
+    optionsExpDate = [datetime.strptime(i, '%Y-%m-%d') for i in optionsExpDate]
     near = min(optionsExpDate)
     optionsExpDate.remove(near)
     if near.day - vixDate.day < 1:
@@ -99,9 +99,9 @@ def getStrikeMinCallMinusPutClosePrice(options):
     return: strike: 看涨合约价格-看跌合约价格 的差值的绝对值最小的行权价
             priceDiff: 以及这个差值，这个是用来确定中间行权价的第一步
     """
-    call = options[options.EXE_MODE == u"认购"].set_index(u"EXE_PRICE").sort_index()
-    put = options[options.EXE_MODE == u"认沽"].set_index(u"EXE_PRICE").sort_index()
-    callMinusPut = call.CLOSE - put.CLOSE
+    call = options[options.option_type == u"C"].set_index(u"strike_price").sort_index()
+    put = options[options.option_type == u"P"].set_index(u"strike_price").sort_index()
+    callMinusPut = call.close - put.close
     strike = abs(callMinusPut).idxmin()
     priceDiff = callMinusPut[strike].min()
     return strike, priceDiff
@@ -120,8 +120,8 @@ def calSigmaSquare(options, FF, R, T):
             T： 还有多久到期（年化）
     return：Sigma：得到的结果是传入该到期日数据的Sigma
     """
-    callAll = options[options.EXE_MODE == u"认购"].set_index(u"EXE_PRICE").sort_index()
-    putAll = options[options.EXE_MODE == u"认沽"].set_index(u"EXE_PRICE").sort_index()
+    callAll = options[options.option_type == u"C"].set_index(u"strike_price").sort_index()
+    putAll = options[options.option_type == u"P"].set_index(u"strike_price").sort_index()
     callAll['deltaK'] = 0.05
     putAll['deltaK'] = 0.05
 
@@ -148,24 +148,24 @@ def calSigmaSquare(options, FF, R, T):
     FF_idx = FF
     if put.empty:
         FF_idx = call.index[0]
-        callComponent = call.CLOSE * call.deltaK / call.index / call.index
+        callComponent = call.close * call.deltaK / call.index / call.index
         sigma = (sum(callComponent)) * np.exp(T * R) * 2 / T
         sigma = sigma - (FF / FF_idx - 1) ** 2 / T
     elif call.empty:
         FF_idx = put.index[-1]
-        putComponent = put.CLOSE * put.deltaK / put.index / put.index
+        putComponent = put.close * put.deltaK / put.index / put.index
         sigma = (sum(putComponent)) * np.exp(T * R) * 2 / T
         sigma = sigma - (FF / FF_idx - 1) ** 2 / T
     else:
         FF_idx = put.index[-1]
         try:
-            if len(putAll.loc[FF_idx].CLOSE.values) > 1:
-                put['CLOSE'].iloc[-1] = (putAll.loc[FF_idx].CLOSE.values[1] + callAll.loc[FF_idx].CLOSE.values[0]) / 2.0
+            if len(putAll.loc[FF_idx].close.values) > 1:
+                put['close'].iloc[-1] = (putAll.loc[FF_idx].close.values[1] + callAll.loc[FF_idx].close.values[0]) / 2.0
         except:
-            put['CLOSE'].iloc[-1] = (putAll.loc[FF_idx].CLOSE + callAll.loc[FF_idx].CLOSE) / 2.0
+            put['close'].iloc[-1] = (putAll.loc[FF_idx].close + callAll.loc[FF_idx].close) / 2.0
 
-        callComponent = call.CLOSE * call.deltaK / call.index / call.index
-        putComponent = put.CLOSE * put.deltaK / put.index / put.index
+        callComponent = call.close * call.deltaK / call.index / call.index
+        putComponent = put.close * put.deltaK / put.index / put.index
         sigma = (sum(callComponent) + sum(putComponent)) * np.exp(T * R) * 2 / T
         sigma = sigma - (FF / FF_idx - 1) ** 2 / T
     return sigma
@@ -173,10 +173,10 @@ def calSigmaSquare(options, FF, R, T):
 
 def changeste(t):
     if t.month >= 10:
-        str_t = t.strftime('%Y/%m/%d ') + '0:00'
+        str_t = t.strftime('%Y-%m-%d')
     else:
-        str_t = t.strftime('%Y/%m/%d ')
-        str_t = str_t[:5] + str_t[6:] + '0:00'
+        str_t = t.strftime('%Y-%m-%d')
+        # str_t = str_t[:5] + str_t[6:]
     return str_t
 
 
@@ -196,8 +196,8 @@ def calDayVIX(vixDate):
 
     str_near = changeste(near)
     str_nexts = changeste(nexts)
-    optionsNearTerm = options[options.EXE_ENDDATE == str_near]
-    optionsNextTerm = options[options.EXE_ENDDATE == str_nexts]
+    optionsNearTerm = options[options.maturity_date == str_near]
+    optionsNextTerm = options[options.maturity_date == str_nexts]
     # time to expiration
     vixDate = datetime.strptime(vixDate, '%Y/%m/%d')
     T_near = (near - vixDate).days / 365.0
