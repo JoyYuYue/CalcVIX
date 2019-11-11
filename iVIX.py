@@ -10,8 +10,8 @@ import pandas as pd
 from scipy import interpolate
 
 shibor_rate = pd.read_csv('shibor.csv', index_col=0, encoding='GBK')
-options_data = pd.read_csv('data_test.csv',index_col = 'trading_date')
-tradeday = pd.read_csv('tradeday.csv', encoding='GBK')[:15]
+options_data = pd.read_csv('data_AllInOne.csv',index_col = 'datetime')
+tradeday = pd.read_csv('tradetime.csv', encoding='GBK')
 true_ivix = pd.read_csv('ivixx.csv', encoding='GBK')
 pd.options.mode.chained_assignment = None
 
@@ -26,8 +26,8 @@ def periodsSplineRiskFreeInterestRate(options, date):
     return：shibor：该date到每个到期日exoDate的risk free rate
 
     """
-    date = datetime.strptime(date, '%Y/%m/%d')
-    # date = datetime(date.year,date.month,date.day)
+    date = datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
+    date = datetime(date.year,date.month,date.day)
     exp_dates = np.sort(options.maturity_date.unique())
     periods = {}
     for epd in exp_dates:
@@ -61,8 +61,7 @@ def periodsSplineRiskFreeInterestRate(options, date):
 
 
 def getHistDayOptions(vixDate, options_data):
-    vixDate = datetime.strftime(datetime.strptime(vixDate, '%Y/%m/%d'),'%Y-%m-%d')
-    options_data = options_data.loc[vixDate, :]
+    options_data = options_data.loc[vixDate,:]
     return options_data
 
 
@@ -77,7 +76,7 @@ def getNearNextOptExpDate(options, vixDate):
     return: near: 当月合约到期日（ps：大于1天到期）
             next：次月合约到期日
     """
-    vixDate = datetime.strptime(vixDate, '%Y/%m/%d')
+    vixDate = datetime.strptime(vixDate, '%Y-%m-%d %H:%M:%S')
     optionsExpDate = list(pd.Series(options.maturity_date.values.ravel()).unique())
     optionsExpDate = [datetime.strptime(i, '%Y-%m-%d') for i in optionsExpDate]
     near = min(optionsExpDate)
@@ -199,7 +198,7 @@ def calDayVIX(vixDate):
     optionsNearTerm = options[options.maturity_date == str_near]
     optionsNextTerm = options[options.maturity_date == str_nexts]
     # time to expiration
-    vixDate = datetime.strptime(vixDate, '%Y/%m/%d')
+    vixDate = datetime.strptime(vixDate, '%Y-%m-%d %H:%M:%S')
     T_near = (near - vixDate).days / 365.0
     T_next = (nexts - vixDate).days / 365.0
     # the forward index prices
@@ -219,17 +218,24 @@ def calDayVIX(vixDate):
     return 100 * np.sqrt(abs(vix) * 365.0 / 30.0)
 
 
+
 ivix = []
-for day in tradeday['DateTime']:
+for day in tradeday['datetime'][:800]:
+    c = calDayVIX(day)
+    print(day, c)
     ivix.append(calDayVIX(day))
 
-import matplotlib.pyplot as plt
+result = pd.DataFrame({"time":tradeday['datetime'][:800],"Calculated_VIX":ivix})
+result.to_csv('Calculated_result2.csv')
 
-attr = true_ivix[u'日期'].tolist()
-plt.title("Calculated VIX vs. True VIX")
-plt.plot(attr, true_ivix[u'收盘价(元)'], label='Calculated VIX')
-plt.plot(attr, ivix, label='True Vix')
-plt.xticks(['2015/2/10', '2016/2/15', '2017/2/10', '2018/1/22'])
-plt.yticks([0, 10, 20, 30, 40, 50, 60, 70])
-plt.legend()
-plt.show()
+
+# import matplotlib.pyplot as plt
+#
+# attr = true_ivix[u'日期'].tolist()
+# plt.title("Calculated VIX vs. True VIX")
+# plt.plot(attr, true_ivix[u'收盘价(元)'], label='Calculated VIX')
+# plt.plot(attr, ivix, label='True Vix')
+# plt.xticks(['2015/2/10', '2016/2/15', '2017/2/10', '2018/1/22'])
+# plt.yticks([0, 10, 20, 30, 40, 50, 60, 70])
+# plt.legend()
+# plt.show()
