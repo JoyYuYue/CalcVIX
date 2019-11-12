@@ -199,8 +199,8 @@ def calDayVIX(vixDate):
     optionsNextTerm = options[options.maturity_date == str_nexts]
     # time to expiration
     vixDate = datetime.strptime(vixDate, '%Y-%m-%d %H:%M:%S')
-    T_near = (near - vixDate).days / 365.0
-    T_next = (nexts - vixDate).days / 365.0
+    T_near = (near - vixDate).total_seconds() / (365.0*24.0*60.0*60.0)
+    T_next = (nexts - vixDate).total_seconds() / (365.0*24.0*60.0*60.0)
     # the forward index prices
     nearPriceDiff = getStrikeMinCallMinusPutClosePrice(optionsNearTerm)
     nextPriceDiff = getStrikeMinCallMinusPutClosePrice(optionsNextTerm)
@@ -226,7 +226,7 @@ for day in tradeday['datetime'][:800]:
     ivix.append(calDayVIX(day))
 
 result = pd.DataFrame({"time":tradeday['datetime'][:800],"Calculated_VIX":ivix})
-result.to_csv('Calculated_result2.csv')
+result.to_csv('Calculated_result3.csv')
 
 
 # import matplotlib.pyplot as plt
