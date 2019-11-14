@@ -14,7 +14,7 @@ options_data = pd.read_csv('data_AllInOne.csv',index_col = 'datetime')
 tradeday = pd.read_csv('tradetime.csv', encoding='GBK')
 true_ivix = pd.read_csv('ivixx.csv', encoding='GBK')
 pd.options.mode.chained_assignment = None
-
+print(len(tradeday))
 
 # ==============================================================================
 # 开始计算ivix部分
@@ -220,12 +220,12 @@ def calDayVIX(vixDate):
 
 
 ivix = []
-for day in tradeday['datetime'][:800]:
+for day in tradeday['datetime']:
     c = calDayVIX(day)
     print(day, c)
     ivix.append(calDayVIX(day))
 
-result = pd.DataFrame({"time":tradeday['datetime'][:800],"Calculated_VIX":ivix})
+result = pd.DataFrame({"time":tradeday['datetime'],"Calculated_VIX":ivix})
 result.to_csv('Calculated_result3.csv')
 
 
