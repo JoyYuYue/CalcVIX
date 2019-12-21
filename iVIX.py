@@ -10,9 +10,8 @@ import pandas as pd
 from scipy import interpolate
 
 shibor_rate = pd.read_csv('shibor.csv', index_col=0, encoding='GBK')
-options_data = pd.read_csv('data_AllInOne.csv',index_col = 'datetime')
 tradeday = pd.read_csv('tradetime.csv', encoding='GBK')
-true_ivix = pd.read_csv('ivixx.csv', encoding='GBK')
+true_ivix = pd.read_csv('true_vix.csv', encoding='GBK')
 pd.options.mode.chained_assignment = None
 print(len(tradeday))
 
@@ -187,6 +186,8 @@ def calDayVIX(vixDate):
     """
 
     # 拿取所需期权信息
+    date = datetime.strptime(vixDate, '%Y-%m-%d %H:%M:%S').strftime('%Y%m%d')
+    options_data = pd.read_csv('new_data/'+date+'.csv', index_col='datetime')
     options = getHistDayOptions(vixDate, options_data)
     near, nexts = getNearNextOptExpDate(options, vixDate)
     shibor = periodsSplineRiskFreeInterestRate(options, vixDate)
@@ -220,7 +221,7 @@ def calDayVIX(vixDate):
 
 
 ivix = []
-for day in tradeday['datetime']:
+for day in tradeday['datetime'][:1]:
     c = calDayVIX(day)
     print(day, c)
     ivix.append(calDayVIX(day))
