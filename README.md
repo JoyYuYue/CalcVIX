@@ -1,5 +1,5 @@
-#IVIX Calculation
-##Data
+# IVIX Calculation
+## Data
 Raw Data is in the raw_data folder, containing three categories. 
 * Market Data at 1 min frequency of SSE 50ETF
 * Option Data
@@ -11,9 +11,9 @@ Data is kept in seperate daily files for two reasons:
 1. The entire dataset is too large to read in RAM and it is very slow to do so
 2. Ideally, we can find a data crawler that could prepare files every day and save to the folder
 
-##Code
+## Code
 Code entry is in Calculation.ipynb
 I have written some comments on the code. Feel free to reach out if not clear
 
-##Result
+## Result
 A full result is in Calculation_result.csv. However it is not using the latest code so the result is out-of-date.
